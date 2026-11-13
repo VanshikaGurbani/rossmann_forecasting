@@ -83,7 +83,7 @@ pytest                       # synthetic data only, runs without the Kaggle file
 ```
 
 `rossmann run-all` writes `reports/results.json`, `reports/figures/*.png`, `docs/RESULTS.md` and
-the results block above. Nothing in those files is typed by hand. `make run`, `make test`
+the results block above. `make run`, `make test`
 and `make lint` are shortcuts if you have `make`. The pins were produced and tested on Python 3.13.5
 (`pyproject.toml` allows 3.11 to 3.13 but only 3.13 was run; 3.14 is excluded).
 
