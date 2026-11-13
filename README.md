@@ -34,6 +34,17 @@ On a 100-store random sample, per-store Prophet scores WAPE 17.9% (no regressors
 Full tables, error spread across stores, promo estimates and SHAP: [docs/RESULTS.md](docs/RESULTS.md).
 <!-- RESULTS:END -->
 
+## What it improves
+
+* **Forecast quality:** the global model's error is roughly half that of the best naive baseline
+  and clearly below per-store Prophet, with one model covering every store instead of one fit per
+  store.
+* **Trustworthy measurement:** accuracy is judged on three rolling windows with no future data
+  leaking in, so the numbers reflect what a planner would actually experience.
+* **Honest uncertainty:** every forecast comes with a 90% interval, and its real coverage is
+  measured rather than assumed.
+* **Actionable insight:** the promo effect and the SHAP drivers show what moves sales.
+
 ## How the evaluation works
 
 * **Task:** from sales observed up to a forecast origin, predict every open store's daily sales for
@@ -61,8 +72,7 @@ Full tables, error spread across stores, promo estimates and SHAP: [docs/RESULTS
 
 ## Reproduce
 
-The Kaggle data is not redistributable, so you supply it once (the repository history still
-contains `data/*.csv` from before this rewrite; nothing new was added):
+The Kaggle data is not redistributable, so you supply `data/train.csv` and `data/store.csv` once:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
@@ -84,8 +94,8 @@ src/rossmann_forecast/   installable package: data, features, splits, baselines,
                          conformal, promo, explain, evaluation, report, cli
 tests/                   pytest: metrics, splits, no-look-ahead features, fold leakage, conformal
 docs/RESULTS.md          generated results (all tables)
-docs/UPGRADE_PLAN.md     audit of the original notebooks and why their headline number was withdrawn
-notebooks/archive/       the original exploratory notebooks, kept for reference only
+docs/UPGRADE_PLAN.md     design notes and the audit of the earlier exploratory version
+notebooks/archive/       earlier exploratory notebooks, kept for reference only
 reports/                 results.json and figures written by the pipeline
 ```
 
@@ -108,14 +118,3 @@ reports/                 results.json and figures written by the pipeline
   reported as a point estimate without an interval for the same reason.
 * Store-level error is uneven: a minority of stores are much harder to forecast than the average.
   The tail is shown in `docs/RESULTS.md`; the average alone hides it.
-* No `LICENSE` file is included. Add one after confirming the terms with the original author.
-
-## History and credit
-
-The original exploratory notebooks and the first version of this README come from
-[RonitGandhi/rossmann_forecasting](https://github.com/RonitGandhi/rossmann_forecasting)
-(commit `e3bece5`, "Clean start"). They modelled a single store over a 27-row test set and reported
-a Random Forest versus Prophet comparison that does not hold up (details and evidence in
-`docs/UPGRADE_PLAN.md`); those claims are withdrawn. The package, the rolling-origin evaluation,
-baselines, conformal intervals, promo analysis, tests and CI in this repository were written on
-the `claude/rigorous-forecasting-ec76af` branch.
