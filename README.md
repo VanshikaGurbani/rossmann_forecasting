@@ -34,6 +34,18 @@ On a 100-store random sample, per-store Prophet scores WAPE 17.9% (no regressors
 Full tables, error spread across stores, promo estimates and SHAP: [docs/RESULTS.md](docs/RESULTS.md).
 <!-- RESULTS:END -->
 
+## Visualizations
+
+[`notebooks/results_visualizations.ipynb`](notebooks/results_visualizations.ipynb) walks through
+the results with charts: model comparison, error by window, real store-by-store forecasts with 90%
+intervals, a day-by-day replay of the whole-chain forecast, error spread across stores, interval
+hit rates, and the promo and SHAP views. It reads only the saved results in `reports/`, so it needs
+no Kaggle files and no model fitting, and the outputs are already rendered in the notebook.
+
+To re-run it locally: `pip install jupyterlab` then `jupyter lab notebooks/results_visualizations.ipynb`.
+
+![Example forecast with 90% interval](reports/figures/forecast_example.png)
+
 ## What it improves
 
 * **Forecast quality:** the global model's error is roughly half that of the best naive baseline
@@ -90,6 +102,7 @@ and `make lint` are shortcuts if you have `make`. The pins were produced and tes
 ## Repository layout
 
 ```
+notebooks/results_visualizations.ipynb   charts of every result
 src/rossmann_forecast/   installable package: data, features, splits, baselines, models,
                          conformal, promo, explain, evaluation, report, cli
 tests/                   pytest: metrics, splits, no-look-ahead features, fold leakage, conformal

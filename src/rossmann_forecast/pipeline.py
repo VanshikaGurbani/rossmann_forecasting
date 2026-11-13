@@ -146,7 +146,9 @@ def run_all(
     store_frame.to_csv(cache_dir / "store_fold_errors.csv", index=False)
     (out_dir / "results.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     from .report import write_reports
+    from .viz_data import export_viz_data
 
+    export_viz_data(panel, preds, summary["folds"], out_dir=out_dir / "viz_data")
     write_reports(
         panel, preds, store_frame, summary, out_dir=out_dir, docs_dir=docs_dir, readme=readme
     )
