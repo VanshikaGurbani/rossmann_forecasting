@@ -9,3 +9,4 @@ __pycache__/
 data/processed/
 data/interim/
 .cache/
+reports/_smoke/

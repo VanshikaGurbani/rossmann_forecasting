@@ -77,52 +77,52 @@ not this residual. See plan item 5.
 * The Kaggle `train.csv` (39 MB) is committed. Kaggle's rules restrict redistribution;
   see "Data" below.
 
-### Provenance flag (for the owner, not a code issue)
+### Authorship and provenance (for the owner, not a code issue)
 
-`git remote -v` shows `origin = RonitGandhi/rossmann_forecasting` and the single
-commit is authored by "RonitaGandhi"; notebook paths are `/Users/ronitgandhi/...`.
-`mine = VanshikaGurbani/rossmann_forecasting` is a copy of that history. The
-pre-existing analysis therefore appears to be Ronit Gandhi's work. Anything on a
-resume must be limited to what is added on this branch, and the README now
-credits the original author. Resolve the attribution question before sending the resume.
+* `git remote -v` lists `origin = RonitGandhi/rossmann_forecasting` and `mine = VanshikaGurbani/rossmann_forecasting`.
+* The single upstream commit `e3bece5` ("Clean start", 2025-04-26) is authored by "RonitaGandhi".
+  The first commit of the VanshikaGurbani copy (`2d2413b`, "Initial commit", 2026-10-11) has a
+  **byte-identical tree** (`git diff e3bece5 2d2413b` is empty) and no shared history.
+* All five notebooks hard-code `/Users/ronitgandhi/...` paths and their notebook metadata carries
+  no author field.
+* Conclusion: every file present before this branch (notebooks, `src/*.py`, first README, the
+  outputs PNGs) was written by Ronit Gandhi, not by the owner of this repository. The README now
+  credits that source and does not claim the original analysis. Only the work on this branch is
+  new. The owner must confirm the relationship (collaborator, fork she should have forked
+  properly, permission to reuse) before a resume bullet describes the project as her own.
 
 ## 1. What the rebuilt project does
 
-Task definition (stated once, used everywhere): **forecast daily sales of every open
-store for the next H = 42 days (6 weeks, the horizon of the Kaggle competition)
-from information available on the forecast origin**. Planned/known-in-advance
-covariates (promo calendar, holidays, open flag, store attributes) may be used for
-the target dates; realised sales may only be used up to the day before the origin.
+Task definition, used everywhere: **forecast daily sales of every open store for the next
+H = 42 days (6 weeks, the Kaggle horizon) from information available at the forecast origin**.
+Planned covariates (promo calendar, holidays, open flag, store attributes) may be used for the
+target dates; realised sales only up to the day before the origin.
 
 | Step | Deliverable | Notes |
 |------|-------------|-------|
-| 1 Reproducibility | installable package `rossmann_forecast` (src layout), CLI `rossmann`, `Makefile`, pinned `requirements.txt`, fixed seeds | Kaggle download is manual (rules acceptance); `rossmann check-data` explains it |
-| 2 Validation | rolling-origin expanding-window CV, 6 folds x 42 days; RMSE, MAE, MAPE, RMSPE; mean +/- std across folds | RMSPE ignores zero-sales rows as Kaggle does |
-| 2 Baselines | seasonal-naive by weekday, 4-week weekday mean, last-year same-week (t-364) | every model must beat these |
-| 3 Models | one **global LightGBM** (store as categorical + store-level stats); global Random Forest; per-store **Prophet** and **SARIMAX** on a fixed random sample of stores (full 1,115 x 6 folds is hours of CPU) | all models also scored on the *same sample rows* so comparison is like for like; fit-time table |
-| 4 Uncertainty | split-conformal intervals on log-sales from rolling out-of-sample residuals of the *previous* folds | empirical coverage and width per fold, nominal 80% / 90% |
-| 5 Causal | promo effect via two-way fixed effects with store-clustered CIs, event-study DiD with leads (pre-trend), placebo-in-time and placebo-treatment tests, cluster bootstrap | assumptions listed explicitly; the 0.90% number is withdrawn |
-| 6 Delivery | SHAP on the global LightGBM; Streamlit dashboard (store forecast + conformal band, promo lift) | screenshot in README |
-| 7 Quality | pytest (no-look-ahead perturbation tests, metrics, splitters, conformal), ruff, GitHub Actions | CI uses a synthetic dataset, never the Kaggle files |
+| Reproducibility | installable package `rossmann_forecast`, CLI `rossmann`, Makefile, pinned requirements, fixed seed | Kaggle download is manual (rules acceptance); `rossmann check-data` explains it |
+| Validation | rolling-origin expanding window, 3 folds x 42 days (origins fixed before any run: 2014-08-01, 2014-12-01, 2015-06-20) | WAPE, RMSE, MAE, MAPE and Kaggle RMSPE, mean +/- std over folds |
+| Baselines | last value, seasonal naive (same weekday), mean of last 4 same weekdays, last year same weekday (t-364) | every model must beat these |
+| Models | one **global LightGBM** over all 1,115 stores, global Random Forest, per-store **Prophet** (plain and with promo/holiday regressors) on a fixed 100-store random sample | per-store SARIMAX from the original README is not rerun; the original was mis-specified and Prophet covers the per-store case. All models are also scored on the same sample rows |
+| Uncertainty | split conformal on log1p sales, calibrated on the window before each origin, 80% and 90% | empirical coverage per fold, by horizon bucket and per store |
+| Promo | model counterfactual (flip the promo flag) and store x weekday + date fixed-effects regression with a permutation placebo | labelled an association, not a validated causal estimate; the old +0.90% is withdrawn |
+| Explainability | SHAP on the final-fold LightGBM | |
+| Quality | pytest (no-look-ahead perturbation tests, fold leakage test, metrics, splits, conformal), ruff, GitHub Actions on synthetic data | |
+
+Not built: a dashboard, TFT/NeuralProphet-style models, statsforecast, per-store SARIMAX.
+Nothing in the README claims them.
 
 ### Leakage design
 
-All sales-derived features carry an explicit minimum lag equal to the forecast horizon
-(`min_lag = H = 42`), so a feature for target date `t` only reads sales up to `t - 42`,
-which is always before any origin that could predict `t`. Calendar, promo and holiday
-covariates are known in advance. The unit tests verify this by corrupting every sales
-value from `t - min_lag + 1` onwards and asserting the features at `t` do not change.
+All sales-derived features carry a minimum lag equal to the forecast horizon (`min_lag = 42`),
+so a feature for target date `t` only reads sales up to `t - 42`, always before any origin that
+could predict `t`. Sales on or after the origin are additionally masked before features are
+built. The tests scramble sales after `t - min_lag` and assert the features at `t` are
+bit-identical, and scramble the whole forecast window and assert no forecast changes.
 
 ### Data
 
-`data/train.csv`, `data/store.csv`, `data/test.csv` are already tracked in git history
-(from before this branch). I did not add any new large files. Recommended follow-up for
-the owner: `git rm --cached data/*.csv` and rely on `rossmann check-data` / the Kaggle CLI
-(merging that change will delete the local copies from the working tree, so copy them first).
-`data/test.csv` has no `Sales` column (Kaggle hold-out), so it cannot be scored and is unused.
-
-### Out of scope / not claimed
-
-TFT / NeuralProphet-style comparison: not attempted unless time remains; if it is
-not in the README results table it was not run. Hyper-parameter search is minimal and
-described where used.
+`data/train.csv`, `data/store.csv`, `data/test.csv` were already tracked in git history before this
+branch; no new large files were added. Recommended follow-up for the owner: `git rm --cached
+data/*.csv` and use `rossmann check-data`. Merging that deletion would remove the local copies, so
+copy them first. `data/test.csv` has no `Sales` column (Kaggle hold-out) and is unused.
