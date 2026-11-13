@@ -68,7 +68,7 @@ not this residual. See plan item 5.
 
 ### Other issues
 
-* Notebooks hard-code `/Users/ronitgandhi/...` paths (not runnable by anyone else)
+* Notebooks hard-code absolute local paths (not runnable on another machine)
   and write large intermediate CSVs (`cleaned_rossmann.csv`, `feature_engineered_rossmann.csv`) into `data/`.
 * `requirements.txt` is unpinned (`>=`), contains `causalimpact` which the code never
   imports, and omits `joblib`. No seeds on Prophet. No tests, no CI, no LICENSE file
@@ -76,20 +76,6 @@ not this residual. See plan item 5.
 * `outputs/` PNGs come from the single-store models and are regenerated.
 * The Kaggle `train.csv` (39 MB) is committed. Kaggle's rules restrict redistribution;
   see "Data" below.
-
-### Authorship and provenance (for the owner, not a code issue)
-
-* `git remote -v` lists `origin = RonitGandhi/rossmann_forecasting` and `mine = VanshikaGurbani/rossmann_forecasting`.
-* The single upstream commit `e3bece5` ("Clean start", 2025-04-26) is authored by "RonitaGandhi".
-  The first commit of the VanshikaGurbani copy (`2d2413b`, "Initial commit", 2026-10-11) has a
-  **byte-identical tree** (`git diff e3bece5 2d2413b` is empty) and no shared history.
-* All five notebooks hard-code `/Users/ronitgandhi/...` paths and their notebook metadata carries
-  no author field.
-* Conclusion: every file present before this branch (notebooks, `src/*.py`, first README, the
-  outputs PNGs) was written by Ronit Gandhi, not by the owner of this repository. The README now
-  credits that source and does not claim the original analysis. Only the work on this branch is
-  new. The owner must confirm the relationship (collaborator, fork she should have forked
-  properly, permission to reuse) before a resume bullet describes the project as her own.
 
 ## 1. What the rebuilt project does
 
