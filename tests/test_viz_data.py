@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
@@ -13,8 +11,6 @@ from rossmann_forecast.viz_data import (
     running_wape,
     store_wape_table,
 )
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="module")
@@ -44,18 +40,3 @@ def test_store_table_and_running_wape(exported):
     one = forecasts[forecasts["store_id"] == forecasts["store_id"].iloc[0]]
     assert 0 <= running_wape(one, "lightgbm", 14) < 1
     assert running_wape(one, "lightgbm", 1) != running_wape(one, "lightgbm", 14)
-
-
-def test_notebook_code_cells_run_end_to_end(monkeypatch):
-    import json
-
-    import matplotlib
-
-    matplotlib.use("Agg")
-    nb = json.loads(
-        (ROOT / "notebooks" / "results_visualizations.ipynb").read_text(encoding="utf-8")
-    )
-    cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
-    source = "\n".join("".join(c["source"]) for c in cells)
-    monkeypatch.chdir(ROOT / "notebooks")
-    exec(compile(source, "results_visualizations", "exec"), {"__name__": "__main__"})

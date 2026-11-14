@@ -34,15 +34,26 @@ On a 100-store random sample, per-store Prophet scores WAPE 17.9% (no regressors
 Full tables, error spread across stores, promo estimates and SHAP: [docs/RESULTS.md](docs/RESULTS.md).
 <!-- RESULTS:END -->
 
-## Visualizations
+## Notebooks
 
-[`notebooks/results_visualizations.ipynb`](notebooks/results_visualizations.ipynb) walks through
-the results with charts: model comparison, error by window, real store-by-store forecasts with 90%
-intervals, a day-by-day replay of the whole-chain forecast, error spread across stores, interval
-hit rates, and the promo and SHAP views. It reads only the saved results in `reports/`, so it needs
-no Kaggle files and no model fitting, and the outputs are already rendered in the notebook.
+Each notebook does one job, runs real code on the data, and shows its charts inline (outputs are
+already rendered, so GitHub displays them without running anything). They live in
+[`notebooks/updated/`](notebooks/updated/) and run in order:
 
-To re-run it locally: `pip install jupyterlab` then `jupyter lab notebooks/results_visualizations.ipynb`.
+| Notebook | What it does |
+|---|---|
+| [`00_Results_Overview`](notebooks/updated/00_Results_Overview.ipynb) | Headline results from the saved pipeline run: model comparison, real store forecasts with intervals, whole-chain replay, error by store, interval hit rates, promo and SHAP summary. Needs no Kaggle data. |
+| [`01_EDA_FeatureEngineering`](notebooks/updated/01_EDA_FeatureEngineering.ipynb) | Explores the data (trends, weekly and yearly rhythm, promos, store types, data gaps), builds the leak-safe features, and proves no future sales leak in. |
+| [`02_Baselines_Prophet_SARIMAX`](notebooks/updated/02_Baselines_Prophet_SARIMAX.ipynb) | The three forecast windows, naive baselines on every store, and per-store Prophet and SARIMAX models. |
+| [`03_ML_Models_LightGBM_RF_XGBoost`](notebooks/updated/03_ML_Models_LightGBM_RF_XGBoost.ipynb) | Trains the global LightGBM, Random Forest and XGBoost models, compares them, and shows where the error comes from and what the models use. |
+| [`04_Prediction_Intervals`](notebooks/updated/04_Prediction_Intervals.ipynb) | Builds 90% conformal prediction intervals step by step and measures how often they hold, including the window where they fall short. |
+| [`05_Promo_Analysis`](notebooks/updated/05_Promo_Analysis.ipynb) | Estimates the promo lift three ways (raw, fixed-effects regression with a randomisation check, model what-if), labelled as associations. |
+| [`06_Explainability_SHAP_PDP`](notebooks/updated/06_Explainability_SHAP_PDP.ipynb) | Opens the model with SHAP and partial dependence plots. |
+
+To run them locally: `pip install jupyterlab`, then `jupyter lab notebooks/updated`. Notebooks 01
+to 06 read `data/train.csv` and `data/store.csv` and take from a few seconds to about two minutes
+each. The original exploratory notebooks (`notebooks/01_...` to `05_...`) are kept exactly as they
+were written; the `updated` set above replaces them.
 
 ![Example forecast with 90% interval](reports/figures/forecast_example.png)
 
@@ -91,7 +102,7 @@ python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\
 pip install -r requirements.txt -r requirements-dev.txt && pip install -e . --no-deps
 rossmann check-data          # prints the Kaggle steps if train.csv / store.csv are missing
 rossmann run-all             # a few minutes on a 16-core laptop; rewrites the results below
-pytest                       # synthetic data only, runs without the Kaggle files
+pytest                       # core tests use synthetic data; notebook runs need the Kaggle files
 ```
 
 `rossmann run-all` writes `reports/results.json`, `reports/figures/*.png`, `docs/RESULTS.md` and
@@ -102,13 +113,13 @@ and `make lint` are shortcuts if you have `make`. The pins were produced and tes
 ## Repository layout
 
 ```
-notebooks/results_visualizations.ipynb   charts of every result
+notebooks/updated/       one notebook per step, with charts (start with 00_Results_Overview)
 src/rossmann_forecast/   installable package: data, features, splits, baselines, models,
                          conformal, promo, explain, evaluation, report, cli
 tests/                   pytest: metrics, splits, no-look-ahead features, fold leakage, conformal
 docs/RESULTS.md          generated results (all tables)
 docs/UPGRADE_PLAN.md     design notes and the audit of the earlier exploratory version
-notebooks/archive/       earlier exploratory notebooks, kept for reference only
+notebooks/01_...05_...   the original exploratory notebooks, kept as written
 reports/                 results.json and figures written by the pipeline
 ```
 

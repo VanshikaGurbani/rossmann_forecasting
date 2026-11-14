@@ -43,7 +43,7 @@ def export_viz_data(
         window = panel.sales.loc[
             origin - pd.Timedelta(days=history_days) : origin - pd.Timedelta(days=1)
         ]
-        long = window.stack().rename("sales").reset_index()
+        long = window.stack().dropna().rename("sales").reset_index()
         long.columns = ["date", "store_id", "sales"]
         long["fold"] = fold["fold"]
         frames.append(long)
