@@ -1,4 +1,4 @@
-"""Execute every code cell of the updated notebooks so they cannot silently break."""
+"""Execute every code cell of the notebooks so they cannot silently break."""
 
 import json
 from pathlib import Path
@@ -6,14 +6,14 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOKS = sorted((ROOT / "notebooks" / "updated").glob("*.ipynb"))
+NOTEBOOKS = sorted((ROOT / "notebooks").glob("*.ipynb"))
 HAS_DATA = (ROOT / "data" / "train.csv").exists() and (ROOT / "data" / "store.csv").exists()
 
 
 def test_the_notebook_set_is_complete():
     names = [p.name for p in NOTEBOOKS]
-    assert len(names) == 7, names
-    assert names[0].startswith("00_") and names[-1].startswith("06_")
+    assert len(names) == 8, names
+    assert names[0].startswith("00_") and names[-1].startswith("07_")
 
 
 def test_saved_outputs_contain_no_errors():

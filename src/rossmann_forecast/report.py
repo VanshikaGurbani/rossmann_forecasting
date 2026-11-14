@@ -370,7 +370,9 @@ def readme_block(summary: dict) -> str:
     return "\n".join(lines)
 
 
-def _figures(panel: Panel, preds: pd.DataFrame, store_frame: pd.DataFrame, out_dir: Path) -> None:
+def _figures(
+    panel: Panel, preds: pd.DataFrame, store_frame: pd.DataFrame, out_dir: Path, summary: dict
+) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -413,6 +415,44 @@ def _figures(panel: Panel, preds: pd.DataFrame, store_frame: pd.DataFrame, out_d
     fig.savefig(fig_dir / "forecast_example.png", dpi=130)
     plt.close(fig)
 
+    models = summary["all_stores"]
+    order = [m for m in NAMES if m in models and not m.startswith("prophet")]
+    order.sort(key=lambda m: -models[m]["mean"]["wape"])
+    palette = {"lightgbm": "#c0392b", "random_forest": "#d98324", "last_year": "#2e8b57",
+               "snaive_mean4": "#8e6bbf", "snaive": "#7f7f7f", "naive_last": "#bcbd22"}  # fmt: skip
+    fig, ax = plt.subplots(figsize=(8.5, 3.6))
+    vals = [models[m]["mean"]["wape"] * 100 for m in order]
+    errs = [models[m]["std"]["wape"] * 100 for m in order]
+    ax.barh(
+        [NAMES[m] for m in order], vals, xerr=errs, color=[palette[m] for m in order], capsize=3
+    )
+    for i, v in enumerate(vals):
+        ax.text(v + errs[i] + 0.5, i, f"{v:.1f}%", va="center")
+    ax.set_xlabel("Forecast error (WAPE, %): lower is better")
+    ax.set_title("One ML model roughly halves the error of simple rules")
+    fig.tight_layout()
+    fig.savefig(fig_dir / "model_comparison.png", dpi=130)
+    plt.close(fig)
+
+    chain = last.groupby("date")[["y", "lightgbm"]].sum() / 1e6
+    chain_wape = (chain["y"] - chain["lightgbm"]).abs().sum() / chain["y"].sum() * 100
+    fig, ax = plt.subplots(figsize=(9, 3.6))
+    ax.plot(chain.index, chain["y"], "o-", color="black", ms=3, lw=1, label="actual")
+    ax.plot(
+        chain.index,
+        chain["lightgbm"],
+        color="#c0392b",
+        lw=2.2,
+        label="forecast made 6 weeks earlier",
+    )
+    ax.set_ylabel("Sales, all stores (millions per day)")
+    ax.set_title(f"Whole chain, final test window: daily forecast error {chain_wape:.1f}%")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2)
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(fig_dir / "chain_forecast.png", dpi=130)
+    plt.close(fig)
+
 
 def write_reports(
     panel: Panel,
@@ -426,7 +466,7 @@ def write_reports(
 ) -> None:
     out_dir, docs_dir = Path(out_dir), Path(docs_dir)
     docs_dir.mkdir(parents=True, exist_ok=True)
-    _figures(panel, preds, store_frame, out_dir)
+    _figures(panel, preds, store_frame, out_dir, summary)
     (docs_dir / "RESULTS.md").write_text(results_markdown(summary), encoding="utf-8")
     if readme is not None and Path(readme).exists():
         text = Path(readme).read_text(encoding="utf-8")

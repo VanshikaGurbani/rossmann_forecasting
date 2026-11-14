@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -24,6 +25,15 @@ def main(argv: list[str] | None = None) -> int:
     chk = sub.add_parser("check-data", help="verify the Kaggle files are present")
     chk.add_argument("--data-dir", default="data")
 
+    rep = sub.add_parser(
+        "report", help="rebuild figures, docs/RESULTS.md and the README block from the last run"
+    )
+    rep.add_argument("--data-dir", default="data")
+    rep.add_argument("--out-dir", default="reports")
+    rep.add_argument("--docs-dir", default="docs")
+    rep.add_argument("--readme", default="README.md")
+    rep.add_argument("--cache-dir", default="data/processed")
+
     run = sub.add_parser("run-all", help="run CV, intervals, promo analysis, SHAP, write reports")
     run.add_argument("--data-dir", default="data")
     run.add_argument("--out-dir", default="reports")
@@ -43,6 +53,23 @@ def main(argv: list[str] | None = None) -> int:
         ok, msg = check_data(args.data_dir)
         print(msg)
         return 0 if ok else 1
+
+    if args.command == "report":
+        import json
+
+        import pandas as pd
+
+        from .report import write_reports
+
+        out_dir = Path(args.out_dir)
+        summary = json.loads((out_dir / "results.json").read_text(encoding="utf-8"))
+        preds = pd.read_parquet(Path(args.cache_dir) / "predictions.parquet")
+        store_frame = pd.read_csv(Path(args.cache_dir) / "store_fold_errors.csv")
+        write_reports(
+            load_panel(args.data_dir), preds, store_frame, summary,
+            out_dir=out_dir, docs_dir=args.docs_dir, readme=args.readme,
+        )  # fmt: skip
+        return 0
 
     from .pipeline import run_all
 
