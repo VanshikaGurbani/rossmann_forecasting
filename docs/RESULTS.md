@@ -6,7 +6,7 @@ Run: commit `d2a30a4`, Python 3.13.5, pandas 3.0.6, LightGBM 4.7.0, seed 42. Tot
 
 ## In plain English
 
-For every open store, forecast daily sales 42 days ahead. Across 3 rolling-origin test windows covering 1,115 stores, a store's typical day has about 7,335 in sales, and the global LightGBM forecast is off by about 689 per store per day on average (9.2% of sales, WAPE). The strongest naive baseline (seasonal naive, mean of last 4 same weekdays) is off by 18.9%, so the model cuts the error by 51% relative to it. The 90% prediction intervals contained the actual sales 86.4% of the time overall.
+This project predicts how much each Rossmann store will sell on each day for the next 6 weeks, so managers can plan staff and stock. It was tested on 3 separate 6-week periods that the model had never seen: for each period it learned only from sales before it began. On a typical store-day the forecast is off by 9.2% of sales, compared with 18.9% for the best simple rule (the average of the same weekday over the last four weeks), a 51% reduction in error.
 
 ## Evaluation design
 
@@ -23,42 +23,42 @@ For every open store, forecast daily sales 42 days ahead. Across 3 rolling-origi
 
 ## All stores: point forecasts
 
-WAPE = sum of absolute errors / sum of actual sales. RMSE and MAE are in sales units per store per day. RMSPE is the Kaggle competition metric.
+The headline measure is the average error as a percent of sales (WAPE: total absolute error divided by total sales). The other three columns are standard alternatives: MAE is the average miss in sales units per store per day; RMSE is similar but punishes big misses more; RMSPE is the Kaggle competition measure, a percentage version of RMSE. Lower is better for all of them.
 
-| Model | WAPE | RMSE | MAE | RMSPE |
+| Model | Average error (WAPE, % of sales) | RMSE | MAE | RMSPE |
 |---|---|---|---|---|
-| Naive (last observed day) | 29.7% +/- 6.3 | 2,791 +/- 656 | 2,174 +/- 478 | 0.483 +/- 0.112 |
-| Seasonal naive (same weekday, last week) | 22.9% +/- 1.5 | 2,247 +/- 193 | 1,681 +/- 212 | 0.370 +/- 0.022 |
-| Seasonal naive, mean of last 4 same weekdays | 18.9% +/- 2.6 | 1,868 +/- 462 | 1,400 +/- 350 | 0.264 +/- 0.046 |
-| Last year, same weekday (t-364) | 19.3% +/- 9.5 | 1,986 +/- 701 | 1,392 +/- 605 | 0.285 +/- 0.109 |
-| Global Random Forest | 10.4% +/- 2.5 | 1,178 +/- 426 | 775 +/- 276 | 0.152 +/- 0.038 |
-| **Global LightGBM** | 9.2% +/- 2.5 | 1,020 +/- 327 | 689 +/- 267 | 0.129 +/- 0.031 |
+| Copy the last open day | 29.7% +/- 6.3 | 2,791 +/- 656 | 2,174 +/- 478 | 0.483 +/- 0.112 |
+| Same weekday last week | 22.9% +/- 1.5 | 2,247 +/- 193 | 1,681 +/- 212 | 0.370 +/- 0.022 |
+| Average of the same weekday over the last 4 weeks | 18.9% +/- 2.6 | 1,868 +/- 462 | 1,400 +/- 350 | 0.264 +/- 0.046 |
+| Same weekday last year | 19.3% +/- 9.5 | 1,986 +/- 701 | 1,392 +/- 605 | 0.285 +/- 0.109 |
+| Random Forest | 10.4% +/- 2.5 | 1,178 +/- 426 | 775 +/- 276 | 0.152 +/- 0.038 |
+| **LightGBM (our model)** | 9.2% +/- 2.5 | 1,020 +/- 327 | 689 +/- 267 | 0.129 +/- 0.031 |
 
 Per fold (WAPE % / RMSE):
 
 | Model | Fold 1 (2014-08-01) | Fold 2 (2014-12-01) | Fold 3 (2015-06-20) |
 |---|---|---|---|
-| Naive (last observed day) | 35.8 / 2,990 | 30.0 / 3,325 | 23.3 / 2,059 |
-| Seasonal naive (same weekday, last week) | 24.3 / 2,198 | 23.1 / 2,459 | 21.3 / 2,084 |
-| Seasonal naive, mean of last 4 same weekdays | 16.6 / 1,514 | 21.7 / 2,391 | 18.3 / 1,698 |
-| Last year, same weekday (t-364) | 29.9 / 2,624 | 16.0 / 2,100 | 11.9 / 1,235 |
-| Global Random Forest | 9.0 / 935 | 13.3 / 1,669 | 8.9 / 928 |
-| Global LightGBM | 7.6 / 834 | 12.1 / 1,398 | 7.9 / 828 |
+| Copy the last open day | 35.8 / 2,990 | 30.0 / 3,325 | 23.3 / 2,059 |
+| Same weekday last week | 24.3 / 2,198 | 23.1 / 2,459 | 21.3 / 2,084 |
+| Average of the same weekday over the last 4 weeks | 16.6 / 1,514 | 21.7 / 2,391 | 18.3 / 1,698 |
+| Same weekday last year | 29.9 / 2,624 | 16.0 / 2,100 | 11.9 / 1,235 |
+| Random Forest | 9.0 / 935 | 13.3 / 1,669 | 8.9 / 928 |
+| LightGBM (our model) | 7.6 / 834 | 12.1 / 1,398 | 7.9 / 828 |
 
 ## Per-store Prophet versus the global model (100-store random sample)
 
 Prophet is fitted separately per store and per fold, so it is run on a fixed random sample of 100 stores (seed 42), not all 1,115. All rows below are scored on exactly the same store-days.
 
-| Model | WAPE | RMSE | MAE | RMSPE |
+| Model | Average error (WAPE, % of sales) | RMSE | MAE | RMSPE |
 |---|---|---|---|---|
-| Naive (last observed day) | 29.8% +/- 6.4 | 2,896 +/- 744 | 2,251 +/- 536 | 0.489 +/- 0.103 |
-| Seasonal naive (same weekday, last week) | 23.1% +/- 1.8 | 2,337 +/- 277 | 1,740 +/- 260 | 0.378 +/- 0.025 |
-| Seasonal naive, mean of last 4 same weekdays | 19.3% +/- 3.1 | 1,990 +/- 550 | 1,475 +/- 407 | 0.271 +/- 0.056 |
-| Last year, same weekday (t-364) | 19.5% +/- 8.8 | 2,052 +/- 694 | 1,447 +/- 582 | 0.290 +/- 0.094 |
-| Global Random Forest | 10.8% +/- 3.1 | 1,324 +/- 514 | 832 +/- 336 | 0.167 +/- 0.053 |
-| **Global LightGBM** | 9.4% +/- 2.3 | 1,124 +/- 293 | 724 +/- 267 | 0.139 +/- 0.033 |
-| Prophet per store (no regressors) | 17.9% +/- 1.5 | 1,818 +/- 337 | 1,359 +/- 264 | 0.279 +/- 0.084 |
-| Prophet per store (+ promo, holidays) | 12.5% +/- 1.9 | 1,383 +/- 317 | 949 +/- 253 | 0.205 +/- 0.077 |
+| Copy the last open day | 29.8% +/- 6.4 | 2,896 +/- 744 | 2,251 +/- 536 | 0.489 +/- 0.103 |
+| Same weekday last week | 23.1% +/- 1.8 | 2,337 +/- 277 | 1,740 +/- 260 | 0.378 +/- 0.025 |
+| Average of the same weekday over the last 4 weeks | 19.3% +/- 3.1 | 1,990 +/- 550 | 1,475 +/- 407 | 0.271 +/- 0.056 |
+| Same weekday last year | 19.5% +/- 8.8 | 2,052 +/- 694 | 1,447 +/- 582 | 0.290 +/- 0.094 |
+| Random Forest | 10.8% +/- 3.1 | 1,324 +/- 514 | 832 +/- 336 | 0.167 +/- 0.053 |
+| **LightGBM (our model)** | 9.4% +/- 2.3 | 1,124 +/- 293 | 724 +/- 267 | 0.139 +/- 0.033 |
+| Prophet, one model per store | 17.9% +/- 1.5 | 1,818 +/- 337 | 1,359 +/- 264 | 0.279 +/- 0.084 |
+| Prophet per store, also told promos and holidays | 12.5% +/- 1.9 | 1,383 +/- 317 | 949 +/- 253 | 0.205 +/- 0.077 |
 
 ## How error is spread across stores
 
@@ -66,11 +66,11 @@ Store-level WAPE for each of the 3,164 (store, fold) pairs. A good average can h
 
 | Model | p10 | median | p90 | p99 | max |
 |---|---|---|---|---|---|
-| Global LightGBM | 5.8% | 8.5% | 13.8% | 25.6% | 53.2% |
-| Last year, same weekday (t-364) | 9.5% | 16.0% | 34.5% | 48.3% | 78.9% |
-| Seasonal naive, mean of last 4 same weekdays | 13.6% | 18.7% | 24.6% | 31.3% | 60.1% |
+| LightGBM (our model) | 5.8% | 8.5% | 13.8% | 25.6% | 53.2% |
+| Same weekday last year | 9.5% | 16.0% | 34.5% | 48.3% | 78.9% |
+| Average of the same weekday over the last 4 weeks | 13.6% | 18.7% | 24.6% | 31.3% | 60.1% |
 
-Share of (store, fold) pairs where LightGBM has lower WAPE than: last year, same weekday (t-364) 91%; seasonal naive, mean of last 4 same weekdays 93%.
+Share of (store, fold) pairs where LightGBM has lower WAPE than: same weekday last year 91%; average of the same weekday over the last 4 weeks 93%.
 
 Five worst stores by mean WAPE: store 192 (30% WAPE, mean sales 13,759), store 909 (30% WAPE, mean sales 13,918), store 820 (26% WAPE, mean sales 12,407), store 306 (24% WAPE, mean sales 4,607), store 1056 (23% WAPE, mean sales 4,891).
 

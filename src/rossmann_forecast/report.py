@@ -14,14 +14,20 @@ import pandas as pd
 from .data import Panel
 
 NAMES = {
-    "naive_last": "Naive (last observed day)",
-    "snaive": "Seasonal naive (same weekday, last week)",
-    "snaive_mean4": "Seasonal naive, mean of last 4 same weekdays",
-    "last_year": "Last year, same weekday (t-364)",
-    "random_forest": "Global Random Forest",
-    "lightgbm": "Global LightGBM",
-    "prophet_plain": "Prophet per store (no regressors)",
-    "prophet_promo": "Prophet per store (+ promo, holidays)",
+    "naive_last": "Copy the last open day",
+    "snaive": "Same weekday last week",
+    "snaive_mean4": "Average of the same weekday over the last 4 weeks",
+    "last_year": "Same weekday last year",
+    "random_forest": "Random Forest",
+    "lightgbm": "LightGBM (our model)",
+    "prophet_plain": "Prophet, one model per store",
+    "prophet_promo": "Prophet per store, also told promos and holidays",
+}
+RULE_PHRASE = {
+    "naive_last": "copying the last open day",
+    "snaive": "repeating the same weekday from last week",
+    "snaive_mean4": "the average of the same weekday over the last four weeks",
+    "last_year": "the same weekday one year earlier",
 }
 README_START = "<!-- RESULTS:START -->"
 README_END = "<!-- RESULTS:END -->"
@@ -50,38 +56,26 @@ def _main_table(models: dict, order: list[str]) -> str:
         e = models[name]
         label = f"**{NAMES[name]}**" if name == "lightgbm" else NAMES[name]
         rows.append([label, _pm(e, "wape", True), _pm(e, "rmse"), _pm(e, "mae"), _pm(e, "rmspe")])
-    return _table(["Model", "WAPE", "RMSE", "MAE", "RMSPE"], rows)
+    return _table(["Model", "Average error (WAPE, % of sales)", "RMSE", "MAE", "RMSPE"], rows)
 
 
 def plain_english(summary: dict) -> str:
     models = summary["all_stores"]
-    lgb, best_base = (
-        models["lightgbm"],
-        min(
-            (
-                models[m]
-                for m in ("naive_last", "snaive", "snaive_mean4", "last_year")
-                if m in models
-            ),
-            key=lambda e: e["mean"]["wape"],
-        ),
-    )
-    best_name = next(n for n, e in models.items() if e is best_base)
-    mean_sales = np.mean([f["mean_daily_sales"] for f in summary["folds"]])
-    mae = lgb["mean"]["mae"]
+    lgb = models["lightgbm"]
+    rules = [m for m in RULE_PHRASE if m in models]
+    best_name = min(rules, key=lambda m: models[m]["mean"]["wape"])
+    best = models[best_name]
+    weeks = summary["meta"]["horizon_days"] // 7
     n_folds = len(summary["folds"])
-    h = summary["meta"]["horizon_days"]
-    gain = (1 - lgb["mean"]["wape"] / best_base["mean"]["wape"]) * 100
-    iv = summary["intervals"]["90"]
+    gain = (1 - lgb["mean"]["wape"] / best["mean"]["wape"]) * 100
     return (
-        f"For every open store, forecast daily sales {h} days ahead. "
-        f"Across {n_folds} rolling-origin test windows covering {summary['meta']['n_stores']:,} stores, "
-        f"a store's typical day has about {mean_sales:,.0f} in sales, and the global LightGBM forecast "
-        f"is off by about {mae:,.0f} per store per day on average ({lgb['mean']['wape'] * 100:.1f}% "
-        f"of sales, WAPE). The strongest naive baseline ({NAMES[best_name].lower()}) is off by "
-        f"{best_base['mean']['wape'] * 100:.1f}%, so the model cuts the error by {gain:.0f}% relative to it. "
-        f"The 90% prediction intervals contained the actual sales {iv['overall_coverage'] * 100:.1f}% "
-        f"of the time overall."
+        f"This project predicts how much each Rossmann store will sell on each day for the next "
+        f"{weeks} weeks, so managers can plan staff and stock. "
+        f"It was tested on {n_folds} separate {weeks}-week periods that the model had never seen: "
+        f"for each period it learned only from sales before it began. "
+        f"On a typical store-day the forecast is off by {lgb['mean']['wape'] * 100:.1f}% of sales, "
+        f"compared with {best['mean']['wape'] * 100:.1f}% for the best simple rule "
+        f"({RULE_PHRASE[best_name]}), a {gain:.0f}% reduction in error."
     )
 
 
@@ -138,8 +132,11 @@ def results_markdown(summary: dict) -> str:
 
     out.append("## All stores: point forecasts\n")
     out.append(
-        "WAPE = sum of absolute errors / sum of actual sales. RMSE and MAE are in sales units per "
-        "store per day. RMSPE is the Kaggle competition metric.\n"
+        "The headline measure is the average error as a percent of sales (WAPE: total absolute error "
+        "divided by total sales). The other three columns are standard alternatives: MAE is the "
+        "average miss in sales units per store per day; RMSE is similar but punishes big misses "
+        "more; RMSPE is the Kaggle competition measure, a percentage version of RMSE. "
+        "Lower is better for all of them.\n"
     )
     out.append(_main_table(summary["all_stores"], order) + "\n")
     out.append("Per fold (WAPE % / RMSE):\n")
@@ -338,33 +335,58 @@ def results_markdown(summary: dict) -> str:
 
 def readme_block(summary: dict) -> str:
     order = ["naive_last", "snaive_mean4", "last_year", "random_forest", "lightgbm"]
+    models = summary["all_stores"]
     iv = summary["intervals"]["90"]
     sample = summary.get("sample_stores")
+    rows = []
+    for name in order:
+        if name not in models:
+            continue
+        e = models[name]
+        label = f"**{NAMES[name]}**" if name == "lightgbm" else NAMES[name]
+        cell = f"{e['mean']['wape'] * 100:.1f}% (+/- {e['std']['wape'] * 100:.1f})"
+        rows.append([label, f"**{cell}**" if name == "lightgbm" else cell])
+    cover = iv["overall_coverage"] * 100
+    gap = 90 - cover
+    if gap <= 0:
+        verdict = "on target or better"
+    elif gap <= 5:
+        verdict = "a little under the 90% target"
+    else:
+        verdict = "well under the 90% target"
     lines = [
         README_START,
         f"_Generated by code from `reports/results.json` (commit `{summary['meta']['git_commit']}`)._",
         "",
         plain_english(summary),
         "",
-        _main_table(summary["all_stores"], order),
+        _table(["Method", "Average error (% of sales)"], rows),
+        "",
+        "Lower is better. An average error of 9% means the forecasts missed the real sales by about "
+        '9% of sales, adding up all store-days. The number after "+/-" shows how much the result '
+        f"varied between the {len(summary['folds'])} test periods: a small value means the method "
+        "was steady, a large one means it did well in some periods and badly in others.",
         "",
     ]
     if sample:
         n = summary["meta"]["n_prophet_stores"]
         lines += [
-            f"On a {n}-store random sample, per-store Prophet scores WAPE "
-            f"{sample['prophet_plain']['mean']['wape'] * 100:.1f}% (no regressors) and "
-            f"{sample['prophet_promo']['mean']['wape'] * 100:.1f}% (with promo and holiday flags) "
-            f"against {sample['lightgbm']['mean']['wape'] * 100:.1f}% for the global LightGBM on the "
-            "same store-days.",
+            f"Prophet, a popular forecasting tool that fits one model per store, is slow to run for "
+            f"every store, so it was tried on a random sample of {n} stores. On those stores it was "
+            f"off by {sample['prophet_plain']['mean']['wape'] * 100:.1f}% on its own and "
+            f"{sample['prophet_promo']['mean']['wape'] * 100:.1f}% when also given the promotion and "
+            f"holiday calendar, against {sample['lightgbm']['mean']['wape'] * 100:.1f}% for LightGBM "
+            "on the same stores.",
             "",
         ]
+    per_period = ", ".join(f"{p['coverage'] * 100:.1f}%" for p in iv["per_fold"])
     lines += [
-        f"90% intervals: {iv['overall_coverage'] * 100:.1f}% empirical coverage overall "
-        "(per fold: " + ", ".join(f"{p['coverage'] * 100:.1f}%" for p in iv["per_fold"]) + ").",
+        "Each forecast also comes with a 90% prediction range, meant to contain the true sales nine "
+        f"times out of ten. In the tests the range held the true sales {cover:.1f}% of the time, "
+        f"{verdict} ({per_period} in the three test periods).",
         "",
-        "Full tables, error spread across stores, promo estimates and SHAP: "
-        "[docs/RESULTS.md](docs/RESULTS.md).",
+        "Other error measures (RMSE, MAE and RMSPE), error by store, the promotion analysis and "
+        "feature importance are in [docs/RESULTS.md](docs/RESULTS.md).",
         README_END,
     ]
     return "\n".join(lines)
@@ -420,7 +442,7 @@ def _figures(
     order.sort(key=lambda m: -models[m]["mean"]["wape"])
     palette = {"lightgbm": "#c0392b", "random_forest": "#d98324", "last_year": "#2e8b57",
                "snaive_mean4": "#8e6bbf", "snaive": "#7f7f7f", "naive_last": "#bcbd22"}  # fmt: skip
-    fig, ax = plt.subplots(figsize=(8.5, 3.6))
+    fig, ax = plt.subplots(figsize=(10, 3.8))
     vals = [models[m]["mean"]["wape"] * 100 for m in order]
     errs = [models[m]["std"]["wape"] * 100 for m in order]
     ax.barh(
@@ -428,7 +450,7 @@ def _figures(
     )
     for i, v in enumerate(vals):
         ax.text(v + errs[i] + 0.5, i, f"{v:.1f}%", va="center")
-    ax.set_xlabel("Forecast error (WAPE, %): lower is better")
+    ax.set_xlabel("Average error (% of sales): lower is better")
     ax.set_title("One ML model roughly halves the error of simple rules")
     fig.tight_layout()
     fig.savefig(fig_dir / "model_comparison.png", dpi=130)
