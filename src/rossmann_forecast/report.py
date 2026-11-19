@@ -362,7 +362,7 @@ def readme_block(summary: dict) -> str:
         "",
         _table(["Method", "Average error (% of sales)"], rows),
         "",
-        "Lower is better. An average error of 9% means the forecasts missed the real sales by about "
+        "**How to read the table:** lower is better. An average error of 9% means the forecasts missed the real sales by about "
         '9% of sales, adding up all store-days. The number after "+/-" shows how much the result '
         f"varied between the {len(summary['folds'])} test periods: a small value means the method "
         "was steady, a large one means it did well in some periods and badly in others.",
@@ -371,8 +371,8 @@ def readme_block(summary: dict) -> str:
     if sample:
         n = summary["meta"]["n_prophet_stores"]
         lines += [
-            f"Prophet, a popular forecasting tool that fits one model per store, is slow to run for "
-            f"every store, so it was tried on a random sample of {n} stores. On those stores it was "
+            f"**Prophet:** this popular forecasting tool fits one model per store and is slow to run "
+            f"for every store, so it was tried on a random sample of {n} stores. On those stores it was "
             f"off by {sample['prophet_plain']['mean']['wape'] * 100:.1f}% on its own and "
             f"{sample['prophet_promo']['mean']['wape'] * 100:.1f}% when also given the promotion and "
             f"holiday calendar, against {sample['lightgbm']['mean']['wape'] * 100:.1f}% for LightGBM "
@@ -381,12 +381,12 @@ def readme_block(summary: dict) -> str:
         ]
     per_period = ", ".join(f"{p['coverage'] * 100:.1f}%" for p in iv["per_fold"])
     lines += [
-        "Each forecast also comes with a 90% prediction range, meant to contain the true sales nine "
+        "**Prediction range:** each forecast also comes with a 90% prediction range, meant to contain the true sales nine "
         f"times out of ten. In the tests the range held the true sales {cover:.1f}% of the time, "
         f"{verdict} ({per_period} in the three test periods).",
         "",
-        "Other error measures (RMSE, MAE and RMSPE), error by store, the promotion analysis and "
-        "feature importance are in [docs/RESULTS.md](docs/RESULTS.md).",
+        "**More detail:** other error measures (RMSE, MAE and RMSPE), error by store, the promotion analysis and "
+        "the inputs the model relies on most are in [docs/RESULTS.md](docs/RESULTS.md).",
         README_END,
     ]
     return "\n".join(lines)

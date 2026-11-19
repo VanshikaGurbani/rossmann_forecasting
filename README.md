@@ -1,16 +1,15 @@
-# Rossmann store sales forecasting: honest 6-week-ahead evaluation
+# Rossmann store sales forecasting: six weeks ahead
 
 ## What this is for
 
-Rossmann runs over a thousand drugstores. A store manager or planner needs to know roughly how
-much each store will sell on each day over the next six weeks, to schedule staff and order stock.
-This project builds that forecast for all 1,115 stores in the public Kaggle Rossmann data and
-measures, with a test that mimics real use, how wrong it is.
+Rossmann runs over a thousand drugstores. A store manager needs to know roughly how much each
+store will sell on each day over the next six weeks, to schedule staff and order stock. This
+project builds that forecast for all 1,115 stores in the public Kaggle Rossmann data and measures
+how wrong it is, using a test that mimics real use.
 
-"Error" below is measured in sales per store per day (the unit of the Kaggle `Sales` column) and
-as WAPE, the total absolute error divided by total sales. A WAPE of 8% means the forecast for a
-typical store-day is off by about 8% of that day's sales. Everything is scored on days the store
-was actually open, and the model never sees sales from the period it is predicting.
+**What "error" means here:** the average miss as a percent of sales. An error of 8% means the
+forecast for a typical store on a typical day is off by about 8% of that day's sales. Only days
+when a store was open are counted, and the model never sees sales from the period it is predicting.
 
 ## Results
 
@@ -27,147 +26,169 @@ This project predicts how much each Rossmann store will sell on each day for the
 | Random Forest | 10.4% (+/- 2.5) |
 | **LightGBM (our model)** | **9.2% (+/- 2.5)** |
 
-Lower is better. An average error of 9% means the forecasts missed the real sales by about 9% of sales, adding up all store-days. The number after "+/-" shows how much the result varied between the 3 test periods: a small value means the method was steady, a large one means it did well in some periods and badly in others.
+**How to read the table:** lower is better. An average error of 9% means the forecasts missed the real sales by about 9% of sales, adding up all store-days. The number after "+/-" shows how much the result varied between the 3 test periods: a small value means the method was steady, a large one means it did well in some periods and badly in others.
 
-Prophet, a popular forecasting tool that fits one model per store, is slow to run for every store, so it was tried on a random sample of 100 stores. On those stores it was off by 17.9% on its own and 12.5% when also given the promotion and holiday calendar, against 9.4% for LightGBM on the same stores.
+**Prophet:** this popular forecasting tool fits one model per store and is slow to run for every store, so it was tried on a random sample of 100 stores. On those stores it was off by 17.9% on its own and 12.5% when also given the promotion and holiday calendar, against 9.4% for LightGBM on the same stores.
 
-Each forecast also comes with a 90% prediction range, meant to contain the true sales nine times out of ten. In the tests the range held the true sales 86.4% of the time, a little under the 90% target (93.6%, 76.7%, 88.0% in the three test periods).
+**Prediction range:** each forecast also comes with a 90% prediction range, meant to contain the true sales nine times out of ten. In the tests the range held the true sales 86.4% of the time, a little under the 90% target (93.6%, 76.7%, 88.0% in the three test periods).
 
-Other error measures (RMSE, MAE and RMSPE), error by store, the promotion analysis and feature importance are in [docs/RESULTS.md](docs/RESULTS.md).
+**More detail:** other error measures (RMSE, MAE and RMSPE), error by store, the promotion analysis and the inputs the model relies on most are in [docs/RESULTS.md](docs/RESULTS.md).
 <!-- RESULTS:END -->
 
 ### The results in three pictures
 
-**1. A single machine-learning model roughly halves the error of simple rules.** Each bar is the
-average forecast error as a percent of sales over three test periods; the whiskers show how much
-it varied between the periods.
+**Picture 1, model comparison:** one machine-learning model roughly halves the error of the simple
+rules. Each bar is the average error as a percent of sales over the three test periods, and the
+whiskers show how much it varied between the periods.
 
 ![Model comparison](reports/figures/model_comparison.png)
 
-**2. What a forecast looks like for one store.** Grey is the sales history the forecast was made
-from, black is what actually happened, red is the forecast made six weeks ahead, and the shaded
-band is the 90% prediction interval.
+**Picture 2, one store:** grey is the sales history the forecast was made from, black is what
+actually happened, red is the forecast made six weeks ahead, and the shaded band is the 90%
+prediction range.
 
-![One store, forecast with 90% interval](reports/figures/forecast_example.png)
+![One store, forecast with 90% prediction range](reports/figures/forecast_example.png)
 
-**3. Add all stores together and the forecast is closer still.** Individual stores are noisy, but
-the whole-chain total follows the real sales closely, which is what stock and staffing plans at
-head-office level depend on.
+**Picture 3, the whole chain:** individual stores are noisy, but the total across all stores
+follows the real sales closely, which is what head-office stock and staffing plans depend on.
 
 ![Whole-chain forecast versus actual](reports/figures/chain_forecast.png)
 
+## Findings from the extra analysis
+
+These come from [notebook 07](notebooks/07_Error_Analysis_and_Ablation.ipynb). The first findings
+use all three test periods. The findings about removing inputs and about forecast age use only the
+most recent test period (20 June to 31 July 2015), where the full model's error is 7.9%.
+
+* **Reopened stores:** right after a store reopens from a closure of two weeks or more, forecasts
+  are much worse (16.4% error against 9.2% for all other days); these days are only 1.3% of the data.
+* **Planning by week:** forecasting a whole week for one store is off by 5.7%, and a whole week
+  for the whole chain by 2.8%, compared with 9.3% for a single store on a single day.
+* **Store types:** forecasts are about equally good for every kind of store, with error between 7.7%
+  and 9.4% depending on store type.
+* **Public holidays:** forecasts are worse on public holidays (17.0% error), but there are only
+  56 such store-days, so treat this as rough.
+* **Promotion calendar:** the planned promotion calendar is the most important input; without it
+  the error rises from 7.9% to 9.5%.
+* **Recent sales and store identity:** these two inputs cover for each other. Without either one
+  alone the error changes only a little (8.7% without recent sales, 8.4% without store identity),
+  but without both it jumps from 7.9% to 27.4%.
+* **Forecast age:** forecasting 6 weeks ahead is almost as accurate as forecasting 1 week ahead
+  (7.9% against 7.7% error), so refreshing the forecast more often gains little.
 
 ## Notebooks
 
-Each notebook does one job, runs real code on the data, and shows its charts inline (outputs are
-already rendered, so GitHub displays them without running anything). Run them in order:
+Each notebook does one job, runs real code on the data, and shows its charts inline. The charts
+are already saved in the notebooks, so GitHub displays them without running anything. Read them
+in order:
 
 | Notebook | What it does |
 |---|---|
-| [`00_Results_Overview`](notebooks/00_Results_Overview.ipynb) | Headline results from the saved pipeline run: model comparison, real store forecasts with intervals, whole-chain replay, error by store, interval hit rates, promo and SHAP summary. Needs no Kaggle data. |
-| [`01_EDA_FeatureEngineering`](notebooks/01_EDA_FeatureEngineering.ipynb) | Explores the data (trends, weekly and yearly rhythm, promos, store types, data gaps), builds the leak-safe features, and proves no future sales leak in. |
-| [`02_Baselines_Prophet_SARIMAX`](notebooks/02_Baselines_Prophet_SARIMAX.ipynb) | The three forecast windows, naive baselines on every store, and per-store Prophet and SARIMAX models. |
-| [`03_ML_Models_LightGBM_RF_XGBoost`](notebooks/03_ML_Models_LightGBM_RF_XGBoost.ipynb) | Trains the global LightGBM, Random Forest and XGBoost models, compares them, and shows where the error comes from and what the models use. |
-| [`04_Prediction_Intervals`](notebooks/04_Prediction_Intervals.ipynb) | Builds 90% conformal prediction intervals step by step and measures how often they hold, including the window where they fall short. |
-| [`05_Promo_Analysis`](notebooks/05_Promo_Analysis.ipynb) | Estimates the promo lift three ways (raw, fixed-effects regression with a randomisation check, model what-if), labelled as associations. |
-| [`06_Explainability_SHAP_PDP`](notebooks/06_Explainability_SHAP_PDP.ipynb) | Opens the model with SHAP and partial dependence plots. |
-| [`07_Error_Analysis_and_Ablation`](notebooks/07_Error_Analysis_and_Ablation.ipynb) | Where the forecast fails (store segments, reopened stores, holidays), how much planning weekly or chain-wide helps, which feature groups matter (ablation), and how much fresher data helps. |
+| [`00_Results_Overview`](notebooks/00_Results_Overview.ipynb) | The main results in charts: how the methods compare, real store forecasts with their ranges, and where the errors are. Needs no Kaggle data. |
+| [`01_EDA_FeatureEngineering`](notebooks/01_EDA_FeatureEngineering.ipynb) | Looks at the raw data (trends, weekly and yearly patterns, promotions, store types, gaps), builds the inputs for the model, and shows that no future sales leak into them. |
+| [`02_Baselines_Prophet_SARIMAX`](notebooks/02_Baselines_Prophet_SARIMAX.ipynb) | Sets up the three test periods, tries the simple rules on every store, and tries Prophet and SARIMAX, two classic methods that model one store at a time. |
+| [`03_ML_Models_LightGBM_RF_XGBoost`](notebooks/03_ML_Models_LightGBM_RF_XGBoost.ipynb) | Trains the three machine-learning models (LightGBM, Random Forest, XGBoost), compares them, and shows where their errors come from. |
+| [`04_Prediction_Intervals`](notebooks/04_Prediction_Intervals.ipynb) | Builds the 90% prediction ranges step by step and checks how often they hold, including the period where they fall short. |
+| [`05_Promo_Analysis`](notebooks/05_Promo_Analysis.ipynb) | Estimates how much promotions lift sales in three ways, described as a link between promotions and sales rather than proof of cause. |
+| [`06_Explainability_SHAP_PDP`](notebooks/06_Explainability_SHAP_PDP.ipynb) | Shows which inputs the model relies on most and how each one changes the forecast. |
+| [`07_Error_Analysis_and_Ablation`](notebooks/07_Error_Analysis_and_Ablation.ipynb) | Finds where forecasts fail and what matters: store types, reopened stores, planning by week, which inputs matter, and how much newer data helps. |
 
-To run them locally: `pip install jupyterlab`, then `jupyter lab notebooks`. Notebooks 01 to 07
-read `data/train.csv` and `data/store.csv` and take from a few seconds to about four minutes each.
-
-### New findings from notebook 07
-
-* **Reopened stores are the weak spot.** Store-days within 14 days of reopening after a closure of
-  two weeks or more are 1.3% of rows but have 16.4% error against 9.2% for the rest.
-* **Planning at a coarser level is much more reliable.** Error is 9.3% for one store-day, 5.7% for one store-week and 2.8% for the whole chain by week.
-* **The planned promo calendar matters most.** Removing it costs 1.5 points of error, more than any other single feature group.
-* **Sales history and store identity cover for each other.** Dropping either alone costs under 1 point; dropping both together takes error from 7.9% to 27.4%.
-* **A 6-week-ahead forecast is almost as good as a 1-week-ahead one** (7.9% against 7.7%), so refreshing more often buys little.
+**Running them yourself:** install JupyterLab (`pip install jupyterlab`), then run
+`jupyter lab notebooks`. Notebooks 01 to 07 read `data/train.csv` and `data/store.csv` and take
+from a few seconds to about four minutes each.
 
 ## What it improves
 
-* **Forecast quality:** the global model's error is roughly half that of the best naive baseline
-  and clearly below per-store Prophet, with one model covering every store instead of one fit per
-  store.
-* **Trustworthy measurement:** accuracy is judged on three rolling windows with no future data
-  leaking in, so the numbers reflect what a planner would actually experience.
-* **Honest uncertainty:** every forecast comes with a 90% interval, and its real coverage is
-  measured rather than assumed.
-* **Actionable insight:** the promo effect and the SHAP drivers show what moves sales.
+* **Forecast quality:** the model's error is about half that of the best simple rule, and clearly
+  lower than Prophet, with one model covering every store instead of one model per store.
+* **Trustworthy measurement:** accuracy is judged on three periods the model had never seen, with
+  no future data leaking in, so the numbers reflect what a planner would actually experience.
+* **Honest uncertainty:** every forecast comes with a 90% prediction range, and how often the
+  range really holds is measured rather than assumed.
+* **Useful insight:** the promotion analysis and the notebook on which inputs matter show what
+  moves sales.
 
-## How the evaluation works
+## How it was tested
 
-* **Task:** from sales observed up to a forecast origin, predict every open store's daily sales for
-  the next 42 days (the Kaggle horizon). The promo calendar, holidays and open/closed flags for
-  the target days are treated as known in advance, as they were in the competition.
-* **Rolling-origin cross-validation, 3 folds, expanding window.** Each fold trains on everything
-  before its origin and predicts the next 42 days. Origins (2014-08-01, 2014-12-01, 2015-06-20)
-  were fixed before running any model and cover the Kaggle test season, the Christmas peak and the
-  latest data. Results are reported per fold and as mean +/- standard deviation over folds.
-* **No future leakage by construction.** Every sales-derived feature is lagged by at least the
-  horizon, sales on or after the origin are hidden before features are built, and tests
-  scramble the forecast window's sales and assert no forecast changes
-  (`tests/test_features.py`, `tests/test_fold_leakage.py`).
-* **Baselines that must be beaten:** last observed value, same weekday last week, mean of the last
-  four same weekdays, and same weekday one year earlier.
-* **Models:** one global LightGBM over all stores (store id and store history as features), a
-  global Random Forest, and per-store Prophet (with and without promo and holiday regressors)
-  on a fixed random sample of stores, because one Prophet fit per store per fold does not scale
-  to every store here. On that sample every model is scored on the same store-days.
-* **Prediction intervals:** split conformal on the log scale, calibrated on the window just before
-  each origin, with empirical coverage reported per fold rather than assumed.
-* **Promotion effect:** reported as an association (model counterfactual and a fixed-effects
-  regression with a placebo check), not as a validated causal estimate. See `docs/RESULTS.md`.
-* **Explainability:** SHAP on the final-fold LightGBM.
+* **The task:** from sales up to a chosen date, predict each open store's sales for every day of
+  the next 42 days (six weeks). The promotion calendar, holidays and which days stores are open
+  are treated as known in advance, as they were in the original Kaggle competition.
+* **Three test periods:** each is six weeks long and starts on 1 August 2014, 1 December 2014 or
+  20 June 2015, which covers late summer, the Christmas peak and the latest data. For each period
+  the model learns only from sales before it starts. The dates were chosen before any model was run.
+* **No peeking at the future:** every input based on past sales is at least six weeks old when it
+  is used, and the sales of the period being predicted are hidden. Automated tests scramble those
+  sales and check that no forecast changes.
+* **Simple rules to beat:** four easy methods a planner could use by hand are copying the last open
+  day, repeating the same weekday from last week, averaging the same weekday over the last four
+  weeks, and repeating the same weekday from a year earlier. The model has to beat all of them.
+* **The models:** one LightGBM model learns from all stores at once, using each store's identity
+  and recent sales as inputs. A Random Forest is a second model of this kind, for comparison.
+  Prophet is fitted separately for each store, so it was tried on a random sample of 100 stores
+  because it is slow to run for all of them; on that sample every method is judged on the same
+  store-days.
+* **Prediction ranges:** the width of each range comes from how wrong the model was in the six
+  weeks just before each test period. How often the range holds the true sales is measured for
+  each test period.
+* **Promotion effect:** estimated in more than one way and described as a link between promotions
+  and higher sales, not proof that promotions cause it, because Rossmann chose when to run them.
+* **Explanations:** the notebooks show which inputs the model leans on most, using a standard
+  method called SHAP.
 
 ## Reproduce
 
-The pipeline reads the two Kaggle files `data/train.csv` and `data/store.csv` (the Rossmann Store
-Sales competition data). They are in the repository; if you need to fetch them again,
+**Data:** the pipeline reads two Kaggle files, `data/train.csv` and `data/store.csv` (the Rossmann
+Store Sales competition data). They are in the repository. If you need to fetch them again,
 `rossmann check-data` prints the Kaggle steps.
+
+**Commands:**
 
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt -r requirements-dev.txt && pip install -e . --no-deps
 rossmann check-data          # prints the Kaggle steps if train.csv / store.csv are missing
-rossmann run-all             # a few minutes on a 16-core laptop; rewrites the results below
-pytest                       # core tests use synthetic data; notebook runs need the Kaggle files
+rossmann run-all             # a few minutes on a 16-core laptop; rewrites the results above
+pytest                       # core tests use made-up data; notebook runs need the Kaggle files
 ```
 
-`rossmann run-all` writes `reports/results.json`, `reports/figures/*.png`, `docs/RESULTS.md` and
-the results block above, all written by code. `rossmann report` rebuilds the figures and tables from
-the last run without retraining. `make run`, `make test` and `make lint` are shortcuts if you have
-`make`. The pins were produced and tested on Python 3.13.5
-(`pyproject.toml` allows 3.11 to 3.13 but only 3.13 was run; 3.14 is excluded).
+**What `rossmann run-all` writes:** `reports/results.json`, the charts in `reports/figures/`,
+`docs/RESULTS.md` and the results block above, all produced by code and never typed by hand.
+`rossmann report` rebuilds the charts and tables from the last run without retraining.
+
+**Shortcuts and versions:** `make run`, `make test` and `make lint` do the same if you have `make`.
+The package versions were fixed and tested on Python 3.13.5 (the settings allow 3.11 to 3.13, but
+only 3.13 was run, and 3.14 is not supported).
 
 ## Repository layout
 
 ```
 notebooks/               one notebook per step, with charts (start with 00_Results_Overview)
-src/rossmann_forecast/   installable package: data, features, splits, baselines, models,
-                         conformal, promo, explain, evaluation, report, cli
-tests/                   pytest: metrics, splits, no-look-ahead features, fold leakage, conformal
-docs/RESULTS.md          generated results (all tables)
-reports/                 results.json and figures written by the pipeline
+src/rossmann_forecast/   the installable code: data, inputs, test periods, simple rules, models,
+                         prediction ranges, promotion analysis, charts and tables, command line
+tests/                   automated tests: error measures, test periods, no future data, ranges
+docs/RESULTS.md          all result tables, generated by code
+reports/                 results.json and charts written by the pipeline
 ```
 
 ## Limitations
 
-* One retail chain, one three-year period (2013-01-01 to 2015-07-31). Three folds is a small
-  number, so the standard deviation across folds is itself a rough estimate.
-* Promo calendars, holidays and open/closed flags for the forecast window are assumed known.
-  If the real promo plan changes after the forecast is made, accuracy will be worse than reported.
-* Hyperparameters were fixed up front, not tuned, and no separate hold-out beyond the three folds
-  was kept. Fold origins were chosen once and not changed after seeing results.
-* Prophet and its promo variant run on a random sample of stores, not all of them; the table says
-  which numbers cover which stores.
-* Conformal intervals assume future errors look like errors in the calibration window. Seasonal
-  shifts (for example the Christmas fold) break that, and the per-fold coverage table shows by how
-  much.
-* The promo effect is an association. Every store follows the same alternate-week promo calendar,
-  so there is no same-day control group, and the estimate cannot be separated from anything else
-  that alternates with the promo weeks. No experiment backs it, and the model counterfactual is
-  reported as a point estimate without an interval for the same reason.
-* Store-level error is uneven: a minority of stores are much harder to forecast than the average.
-  The tail is shown in `docs/RESULTS.md`; the average alone hides it.
+* **One company, a short period:** one retail chain over about two and a half years (1 January 2013
+  to 31 July 2015). Three test periods is a small number, so the "+/-" figures are themselves rough.
+* **Promotions known in advance:** forecasts assume the promotion calendar, holidays and opening
+  days are known six weeks ahead. If the promotion plan changes later, accuracy will be worse than
+  reported.
+* **Settings not tuned:** model settings were chosen up front rather than tuned, and no extra test
+  data beyond the three periods was kept. The test dates were chosen once and not changed after
+  seeing results.
+* **Prophet on a sample:** it was run on 100 stores, not all of them; the result tables say which
+  numbers cover which stores.
+* **Prediction ranges can fall short:** they assume the next period behaves like the one before it.
+  Around Christmas it does not, and the range held the true sales only 76.7% of the time in that
+  test period.
+* **Promotion effect is a link, not proof:** every store ran the same alternate-week promotion
+  calendar, so there are no stores to compare against on the same day, and the estimate cannot be
+  separated from anything else that alternates with those weeks. No experiment backs it.
+* **Uneven errors:** some stores are much harder to forecast than the average, and the average
+  alone hides this. The spread across stores is in `docs/RESULTS.md`.
+* **Rough extra findings:** the results on removed inputs and on forecast age come from one test
+  period and one training run each, so differences of a few tenths of a percent are noise.
